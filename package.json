@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "better-auth generate --config ./auth-cli.ts --output ./db/migrations/0001_better_auth.sql -y",
+    "db:generate": "better-auth generate --config ./scripts/auth-cli.ts --output ./db/migrations/0001_better_auth.sql -y",
     "db:migrate:local": "wrangler d1 migrations apply klef-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply klef-db --remote",
     "cf-typegen": "wrangler types"
