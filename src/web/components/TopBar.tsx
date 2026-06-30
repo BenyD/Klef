@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { KeyRound, Lock, LogOut } from "lucide-react";
 import { signOut } from "../auth.ts";
 import { useVault } from "../vault-session.tsx";
@@ -6,6 +7,13 @@ import { Button } from "./ui/button.tsx";
 // Workbench header. Shows a Lock action only when the vault is unlocked.
 export function TopBar() {
   const { status, lock } = useVault();
+  const navigate = useNavigate();
+
+  async function onSignOut() {
+    await signOut();
+    navigate("/");
+  }
+
   return (
     <header className="flex shrink-0 items-center justify-between border-b px-5 py-3">
       <div className="flex items-center gap-2">
@@ -25,7 +33,7 @@ export function TopBar() {
           variant="ghost"
           size="sm"
           className="text-muted-foreground"
-          onClick={() => void signOut()}
+          onClick={() => void onSignOut()}
         >
           <LogOut />
           Sign out

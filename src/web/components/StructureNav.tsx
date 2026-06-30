@@ -94,7 +94,7 @@ export function StructureNav({ tree, reload, selectedFileId, onSelectFile }: Pro
     <nav className="flex flex-col gap-1 text-sm">
       {tree.workspaces.length === 0 && (
         <p className="text-muted-foreground px-2 py-1.5 text-sm">
-          No workspaces yet — create one to start.
+          No workspaces yet. Create one to start.
         </p>
       )}
 

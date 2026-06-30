@@ -1,18 +1,25 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router";
 import { KeyRound } from "lucide-react";
 import { signOut } from "../auth.ts";
 import { Button } from "./ui/button.tsx";
 
 // Centered layout for the post-login, pre-unlock screens (vault setup, unlock).
-// Mirrors the login screen's brand lockup, plus a quiet sign-out.
 export function AuthShell({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+
+  async function onSignOut() {
+    await signOut();
+    navigate("/");
+  }
+
   return (
-    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 px-4">
+    <div className="relative flex min-h-svh flex-col items-center justify-center gap-8 px-4 py-10">
       <Button
         variant="ghost"
         size="sm"
         className="text-muted-foreground absolute top-4 right-4"
-        onClick={() => void signOut()}
+        onClick={() => void onSignOut()}
       >
         Sign out
       </Button>

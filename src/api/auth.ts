@@ -21,11 +21,10 @@ export function buildAuthOptions(deps: AuthDeps): BetterAuthOptions {
     database: deps.database,
     secret: deps.secret,
     baseURL: deps.baseURL,
-    // Login is deliberately simple and separate from unlock (auth ≠ unlock):
-    // Google now, passkeys as the fast-follow. No email/password — the only
-    // "password" a user holds is the master passphrase, which decrypts data and
-    // never touches the server.
-    emailAndPassword: { enabled: false },
+    // Login methods (the auth gate, separate from the crypto unlock gate). The
+    // login password is NOT the vault passphrase; the master passphrase still
+    // decrypts data and never touches the server.
+    emailAndPassword: { enabled: true },
     socialProviders: {
       google: {
         clientId: deps.google.clientId,

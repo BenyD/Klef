@@ -11,6 +11,7 @@ import {
 } from "./ui/card.tsx";
 import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import { PasswordInput } from "./ui/password-input.tsx";
 
 export function UnlockScreen() {
   const { unlock, recover } = useVault();
@@ -49,7 +50,7 @@ export function UnlockScreen() {
         <CardHeader>
           <CardTitle>Unlock your vault</CardTitle>
           <CardDescription>
-            Enter your master passphrase to decrypt your secrets in this browser.
+            Enter your master passphrase to decrypt your vault.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -58,16 +59,26 @@ export function UnlockScreen() {
               <Label htmlFor="unlock">
                 {mode === "passphrase" ? "Master passphrase" : "Recovery key"}
               </Label>
-              <Input
-                id="unlock"
-                type={mode === "passphrase" ? "password" : "text"}
-                spellCheck={false}
-                autoComplete={mode === "passphrase" ? "current-password" : "off"}
-                placeholder={mode === "recovery" ? "KLEF-XXXXX-XXXXX-…" : undefined}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                autoFocus
-              />
+              {mode === "passphrase" ? (
+                <PasswordInput
+                  id="unlock"
+                  autoComplete="current-password"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <Input
+                  id="unlock"
+                  type="text"
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="KLEF-XXXXX-XXXXX"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  autoFocus
+                />
+              )}
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}
             <Button type="submit" className="w-full" disabled={busy || !value}>

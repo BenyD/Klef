@@ -1,7 +1,9 @@
+import { Navigate, Route, Routes } from "react-router";
 import { Loader2 } from "lucide-react";
 import { useSession } from "./auth.ts";
 import { VaultProvider, useVault } from "./vault-session.tsx";
-import { LoginScreen } from "./components/LoginScreen.tsx";
+import { Landing } from "./components/Landing.tsx";
+import { AuthPage } from "./components/AuthPage.tsx";
 import { VaultSetup } from "./components/VaultSetup.tsx";
 import { UnlockScreen } from "./components/UnlockScreen.tsx";
 import { VaultHome } from "./components/VaultHome.tsx";
@@ -29,15 +31,31 @@ function VaultGate({ email }: { email: string }) {
   }
 }
 
-export function App() {
+function AppArea() {
   const { data: session, isPending } = useSession();
-
   if (isPending) return <Loading />;
-  if (!session) return <LoginScreen />;
-
+  if (!session) return <Navigate to="/auth" replace />;
   return (
     <VaultProvider>
       <VaultGate email={session.user.email} />
     </VaultProvider>
+  );
+}
+
+function AuthRoute() {
+  const { data: session, isPending } = useSession();
+  if (isPending) return <Loading />;
+  if (session) return <Navigate to="/app" replace />;
+  return <AuthPage />;
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/auth" element={<AuthRoute />} />
+      <Route path="/app" element={<AppArea />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

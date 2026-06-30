@@ -49,7 +49,7 @@ describe("FilePane (the save loop)", () => {
 
     await waitFor(() => expect(holder.saved).toHaveLength(1));
 
-    // The server only ever received an opaque blob — not the plaintext.
+    // The server only ever received an opaque blob, not the plaintext.
     const blob = holder.saved[0]!.blob;
     expect(JSON.stringify(blob)).not.toContain("API_KEY");
     expect(blob.alg).toBe("AES-GCM");

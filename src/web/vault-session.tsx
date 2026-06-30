@@ -19,7 +19,7 @@ export type VaultStatus = "loading" | "needs-setup" | "locked" | "unlocked";
 
 interface VaultContextValue {
   status: VaultStatus;
-  /** The session DEK — present only while unlocked. Never leaves memory. */
+  /** The session DEK, present only while unlocked. Never leaves memory. */
   dek: CryptoKey | null;
   /** Run first-run setup; persists material and returns the recovery key to show once. */
   runSetup(passphrase: string): Promise<string>;

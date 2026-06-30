@@ -10,8 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card.tsx";
-import { Input } from "./ui/input.tsx";
 import { Label } from "./ui/label.tsx";
+import { PasswordInput } from "./ui/password-input.tsx";
 
 const MIN_LENGTH = 8;
 
@@ -78,18 +78,16 @@ export function VaultSetup() {
           <CardHeader>
             <CardTitle>Set your master passphrase</CardTitle>
             <CardDescription>
-              This encrypts everything in your vault, in this browser. It never
-              reaches our servers, and we can’t reset it — choose something strong
-              you won’t forget.
+              This encrypts your vault in this browser. We can't reset it, so
+              choose something strong you'll remember.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={onCreate} className="flex flex-col gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="passphrase">Master passphrase</Label>
-                <Input
+                <PasswordInput
                   id="passphrase"
-                  type="password"
                   autoComplete="new-password"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
@@ -98,9 +96,8 @@ export function VaultSetup() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="confirm">Confirm passphrase</Label>
-                <Input
+                <PasswordInput
                   id="confirm"
-                  type="password"
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
@@ -118,8 +115,8 @@ export function VaultSetup() {
           <CardHeader>
             <CardTitle>Save your recovery key</CardTitle>
             <CardDescription>
-              Shown once. It’s the only way back if you forget your passphrase —
-              Klef can’t recover it for you.
+              Shown once. It's the only way back if you forget your passphrase.
+              We can't recover it for you.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
