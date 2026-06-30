@@ -143,10 +143,10 @@ export function VaultSetup() {
                 Download
               </Button>
             </div>
-            <label className="text-muted-foreground flex items-start gap-2 text-sm">
+            <label className="text-muted-foreground flex items-start gap-2 text-xs leading-relaxed">
               <input
                 type="checkbox"
-                className="mt-0.5"
+                className="mt-px size-3.5"
                 style={{ accentColor: "var(--primary)" }}
                 checked={saved}
                 onChange={(e) => setSaved(e.target.checked)}
