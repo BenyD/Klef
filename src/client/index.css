@@ -172,3 +172,93 @@ h1 {
   font-weight: 700;
   font-size: 0.85rem;
 }
+
+.topbar-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.field input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0c1014;
+  color: var(--text);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.btn.secondary {
+  width: auto;
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn.link {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.recovery-code {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border-radius: 10px;
+  background: #0c1014;
+  border: 1px dashed var(--accent);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.checkbox {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0.5rem 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.checkbox input {
+  margin-top: 0.2rem;
+  accent-color: var(--accent);
+}

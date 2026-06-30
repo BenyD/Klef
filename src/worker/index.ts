@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createAuth } from "./auth.ts";
 import { requireAuth, type AuthVariables } from "./middleware.ts";
+import { vault } from "./vault.ts";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -26,6 +27,13 @@ app.get("/api/health", async (c) => {
 app.get("/api/me", requireAuth, (c) =>
   c.json({ ok: true, user: c.get("user") }),
 );
+
+// Vault key material (wrapped DEKs + KDF params). Gated here so the route
+// module can be unit-tested with a stub session; both the bare path and
+// subpaths require auth.
+app.use("/api/vault", requireAuth);
+app.use("/api/vault/*", requireAuth);
+app.route("/api/vault", vault);
 
 // Any other /api path we haven't defined.
 app.all("/api/*", (c) => c.json({ ok: false, error: "Not found" }, 404));
