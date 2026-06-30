@@ -1,4 +1,5 @@
 import type { VaultTree } from "../shared/api-types.ts";
+import type { EncryptedBlob } from "../shared/types.ts";
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -37,3 +38,18 @@ export const renameFile = (id: string, name: string) =>
   req(`/api/files/${id}`, jsonBody("PATCH", { name }));
 export const deleteFile = (id: string) =>
   req(`/api/files/${id}`, { method: "DELETE" });
+
+export interface CurrentVersion {
+  id: string;
+  blob: EncryptedBlob;
+  createdAt: string;
+}
+
+export const getCurrentVersion = (fileId: string) =>
+  req<{ version: CurrentVersion | null }>(`/api/files/${fileId}/current`);
+
+export const saveVersion = (fileId: string, blob: EncryptedBlob) =>
+  req<{ id: string; createdAt: string }>(
+    `/api/files/${fileId}/versions`,
+    jsonBody("POST", { blob }),
+  );

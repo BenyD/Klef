@@ -45,6 +45,31 @@ async function ownsProject(db: D1Database, userId: string, id: string) {
     .first());
 }
 
+/** Returns the file (with its current version pointer) iff owned by the user. */
+function fileForUser(db: D1Database, userId: string, id: string) {
+  return db
+    .prepare(
+      `SELECT f.id, f.current_version_id
+       FROM env_files f
+       JOIN projects p ON f.project_id = p.id
+       JOIN workspaces w ON p.workspace_id = w.id
+       WHERE f.id = ? AND w.user_id = ?`,
+    )
+    .bind(id, userId)
+    .first<{ id: string; current_version_id: string | null }>();
+}
+
+function isBlob(v: unknown): boolean {
+  if (typeof v !== "object" || v === null) return false;
+  const b = v as Record<string, unknown>;
+  return (
+    typeof b.v === "number" &&
+    b.alg === "AES-GCM" &&
+    typeof b.nonce === "string" &&
+    typeof b.ciphertext === "string"
+  );
+}
+
 // --- read: the whole tree --------------------------------------------------
 
 structure.get("/tree", async (c) => {
@@ -258,4 +283,47 @@ structure.delete("/files/:id", async (c) => {
     .bind(c.req.param("id"))
     .run();
   return c.json({ ok: true });
+});
+
+// --- env versions (Phase 5: the save flow) ---------------------------------
+
+// The current (latest) version's opaque blob, for in-browser decrypt + diff.
+structure.get("/files/:id/current", async (c) => {
+  const file = await fileForUser(c.env.DB, c.get("user").id, c.req.param("id"));
+  if (!file) return c.json({ ok: false, error: "Not found" }, 404);
+  if (!file.current_version_id) return c.json({ version: null });
+
+  const row = await c.env.DB.prepare(
+    "SELECT id, blob, created_at FROM env_versions WHERE id = ?",
+  )
+    .bind(file.current_version_id)
+    .first<{ id: string; blob: string; created_at: string }>();
+  if (!row) return c.json({ version: null });
+
+  return c.json({
+    version: { id: row.id, blob: JSON.parse(row.blob), createdAt: row.created_at },
+  });
+});
+
+// Save a new version: insert the blob and atomically advance current_version_id.
+structure.post("/files/:id/versions", async (c) => {
+  const file = await fileForUser(c.env.DB, c.get("user").id, c.req.param("id"));
+  if (!file) return c.json({ ok: false, error: "Not found" }, 404);
+
+  const body = (await c.req.json().catch(() => ({}))) as { blob?: unknown };
+  if (!isBlob(body.blob)) return c.json({ ok: false, error: "Invalid blob" }, 400);
+
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO env_versions (id, env_file_id, blob, created_at) VALUES (?, ?, ?, ?)",
+    ).bind(id, file.id, JSON.stringify(body.blob), createdAt),
+    c.env.DB.prepare("UPDATE env_files SET current_version_id = ? WHERE id = ?").bind(
+      id,
+      file.id,
+    ),
+  ]);
+
+  return c.json({ id, createdAt }, 201);
 });

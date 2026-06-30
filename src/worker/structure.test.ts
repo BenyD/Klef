@@ -112,3 +112,73 @@ describe("structure routes", () => {
     expect((await tree(owner)).workspaces[0]!.name).toBe("Secret");
   });
 });
+
+const BLOB = { v: 1, alg: "AES-GCM", nonce: "bm9uY2Vub25j", ciphertext: "Y2lwaGVy" };
+
+async function makeFile(app: ReturnType<typeof appForUser>): Promise<string> {
+  const wsId = await id(await app.request("/workspaces", post({ name: "W" }), env));
+  const pId = await id(await app.request("/projects", post({ workspaceId: wsId, name: "P" }), env));
+  return id(await app.request("/files", post({ projectId: pId, name: ".env" }), env));
+}
+
+describe("env versions (save flow)", () => {
+  it("starts with no current version, then saves and returns it", async () => {
+    await seedUser("v1");
+    const app = appForUser("v1");
+    const fileId = await makeFile(app);
+
+    expect(await (await app.request(`/files/${fileId}/current`, {}, env)).json()).toEqual({
+      version: null,
+    });
+
+    const saved = await app.request(`/files/${fileId}/versions`, post({ blob: BLOB }), env);
+    expect(saved.status).toBe(201);
+
+    const current = (await (await app.request(`/files/${fileId}/current`, {}, env)).json()) as {
+      version: { id: string; blob: typeof BLOB };
+    };
+    expect(current.version.blob).toEqual(BLOB);
+
+    // The file's current_version_id now reflects the save in the tree.
+    const t = await tree(app);
+    expect(t.workspaces[0]!.projects[0]!.files[0]!.currentVersionId).toBe(current.version.id);
+  });
+
+  it("advances current_version_id on each save", async () => {
+    await seedUser("v2");
+    const app = appForUser("v2");
+    const fileId = await makeFile(app);
+
+    const first = await id(await app.request(`/files/${fileId}/versions`, post({ blob: BLOB }), env));
+    const second = await id(
+      await app.request(
+        `/files/${fileId}/versions`,
+        post({ blob: { ...BLOB, ciphertext: "Y2lwaGVyMg==" } }),
+        env,
+      ),
+    );
+    expect(second).not.toBe(first);
+
+    const current = (await (await app.request(`/files/${fileId}/current`, {}, env)).json()) as {
+      version: { id: string };
+    };
+    expect(current.version.id).toBe(second);
+  });
+
+  it("rejects an invalid blob (400) and another user's file (404)", async () => {
+    await seedUser("v3");
+    await seedUser("v3-intruder");
+    const app = appForUser("v3");
+    const fileId = await makeFile(app);
+
+    expect(
+      (await app.request(`/files/${fileId}/versions`, post({ blob: { junk: true } }), env)).status,
+    ).toBe(400);
+
+    const intruder = appForUser("v3-intruder");
+    expect((await intruder.request(`/files/${fileId}/current`, {}, env)).status).toBe(404);
+    expect(
+      (await intruder.request(`/files/${fileId}/versions`, post({ blob: BLOB }), env)).status,
+    ).toBe(404);
+  });
+});

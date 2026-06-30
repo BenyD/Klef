@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TopBar } from "./TopBar.tsx";
 import { StructureNav, type SelectedFile } from "./StructureNav.tsx";
+import { FilePane } from "./FilePane.tsx";
 import { useTree } from "../use-tree.ts";
 
 export function VaultHome({ email }: { email: string }) {
@@ -27,7 +28,7 @@ export function VaultHome({ email }: { email: string }) {
 
         <main className="pane">
           {selected ? (
-            <FilePanePlaceholder file={selected} />
+            <FilePane key={selected.id} file={selected} onSaved={reload} />
           ) : (
             <div className="pane-empty">
               <p className="muted">
@@ -39,18 +40,6 @@ export function VaultHome({ email }: { email: string }) {
           )}
         </main>
       </div>
-    </div>
-  );
-}
-
-// Replaced in Phase 5 by the real paste → diff → save loop.
-function FilePanePlaceholder({ file }: { file: SelectedFile }) {
-  return (
-    <div className="pane-file">
-      <h2 className="pane-title">{file.name}</h2>
-      <p className="muted small">
-        The paste → in-browser diff → save loop lands here next (Phase 5).
-      </p>
     </div>
   );
 }
