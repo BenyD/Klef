@@ -96,6 +96,13 @@ Because everything is end-to-end encrypted, the operator (you) still can't read
 any stored secret — the same zero-knowledge guarantee holds whether Klef is
 hosted by its author or by you.
 
+## Contributing
+
+Contributions are welcome — please read [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+first. It covers the dev workflow, the rule that the zero-knowledge crypto
+contract must stay intact, how contributions are licensed, and the DCO sign-off
+(`git commit -s`) that CI enforces.
+
 ## Security
 
 See [`SECURITY.md`](./SECURITY.md) for the threat model and how to report
