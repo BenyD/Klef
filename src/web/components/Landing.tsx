@@ -1,61 +1,72 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { KeyRound, Lock, GitBranch, RefreshCw } from "lucide-react";
-import { Button } from "./ui/button.tsx";
+import { GitBranch, KeyRound, Lock, RefreshCw } from "lucide-react";
+import "../styles/marketing.css";
 
 export function Landing() {
   return (
-    <div className="flex min-h-svh flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-            <KeyRound className="size-3.5" />
-          </div>
-          <span className="font-semibold tracking-tight">Klef</span>
+    <div className="marketing">
+      <nav className="marketing-nav">
+        <Link to="/" className="marketing-brand">
+          <span className="marketing-brand-mark">
+            <KeyRound size={14} />
+          </span>
+          Klef
+        </Link>
+        <div className="marketing-nav-links">
+          <a
+            href="https://github.com/BenyD/klef"
+            target="_blank"
+            rel="noreferrer"
+            className="m-btn m-btn-ghost m-btn-sm"
+          >
+            GitHub
+          </a>
+          <Link to="/auth" className="m-btn m-btn-primary m-btn-sm">
+            Sign in
+          </Link>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/auth">Sign in</Link>
-        </Button>
-      </header>
+      </nav>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
-        <div className="flex flex-col items-center gap-5">
-          <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            Zero-knowledge sync for your .env files
-          </h1>
-          <p className="text-muted-foreground max-w-lg text-lg text-balance">
-            Store environment files in one place and pull them down on any
-            machine. Everything is encrypted in your browser before it leaves.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button asChild size="lg">
-            <Link to="/auth">Get started</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <a href="https://github.com/BenyD/klef" target="_blank" rel="noreferrer">
-              View on GitHub
-            </a>
-          </Button>
-        </div>
-
-        <div className="mt-8 grid w-full max-w-3xl gap-4 sm:grid-cols-3">
-          <Feature icon={<Lock className="size-4" />} title="End-to-end encrypted">
-            Keys are derived and held in your browser. The server only ever stores
-            ciphertext.
-          </Feature>
-          <Feature icon={<RefreshCw className="size-4" />} title="Paste, diff, save">
-            See exactly what changed before you save a new version.
-          </Feature>
-          <Feature icon={<GitBranch className="size-4" />} title="Version history">
-            Every save is a version. Restore any of them anytime.
-          </Feature>
+      <main className="marketing-hero">
+        <h1>Zero-knowledge sync for your .env files</h1>
+        <p>
+          Store environment files in one place and pull them down on any machine.
+          Everything is encrypted in your browser before it leaves.
+        </p>
+        <div className="marketing-cta">
+          <Link to="/auth" className="m-btn m-btn-primary">
+            Get started
+          </Link>
+          <a
+            href="https://github.com/BenyD/klef"
+            target="_blank"
+            rel="noreferrer"
+            className="m-btn m-btn-outline"
+          >
+            View on GitHub
+          </a>
         </div>
       </main>
 
-      <footer className="text-muted-foreground mx-auto w-full max-w-5xl px-6 py-6 text-center text-sm">
-        Open source, AGPL-3.0
+      <section className="marketing-features">
+        <Feature icon={<Lock size={16} />} title="End-to-end encrypted">
+          Keys are derived and held in your browser. The server only stores
+          ciphertext.
+        </Feature>
+        <Feature icon={<RefreshCw size={16} />} title="Paste, diff, save">
+          See exactly what changed before you save a new version.
+        </Feature>
+        <Feature icon={<GitBranch size={16} />} title="Version history">
+          Every save is a version. Restore any of them anytime.
+        </Feature>
+      </section>
+
+      <footer className="marketing-footer">
+        <div className="marketing-footer-inner">
+          <span>Klef</span>
+          <span>Open source, AGPL-3.0</span>
+        </div>
       </footer>
     </div>
   );
@@ -71,12 +82,10 @@ function Feature({
   children: ReactNode;
 }) {
   return (
-    <div className="bg-card flex flex-col gap-2 rounded-xl border p-4 text-left">
-      <div className="bg-muted text-foreground flex size-8 items-center justify-center rounded-md">
-        {icon}
-      </div>
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground text-sm">{children}</p>
+    <div className="marketing-feature">
+      <div className="marketing-feature-icon">{icon}</div>
+      <h3>{title}</h3>
+      <p>{children}</p>
     </div>
   );
 }

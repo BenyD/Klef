@@ -1,47 +1,85 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { KeyRound } from "lucide-react";
+import { z } from "zod";
 import { authClient, signInWithGoogle } from "../auth.ts";
 import { Button } from "./ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
+import { Field, FieldError, FieldGroup, FieldLabel } from "./ui/field.tsx";
 import { Input } from "./ui/input.tsx";
-import { Label } from "./ui/label.tsx";
 import { PasswordInput } from "./ui/password-input.tsx";
+
+type Mode = "signin" | "signup";
+type FieldErrors = { name?: string; email?: string; password?: string };
+
+function schemaFor(mode: Mode) {
+  return z.object({
+    name: z.string().optional(),
+    email: z.email("Enter a valid email"),
+    password:
+      mode === "signup"
+        ? z.string().min(8, "Use at least 8 characters")
+        : z.string().min(1, "Enter your password"),
+  });
+}
 
 export function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onGoogle() {
     setBusy(true);
-    setError(null);
+    setFormError(null);
     try {
       await signInWithGoogle();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setFormError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setFormError(null);
+
+    const parsed = schemaFor(mode).safeParse({ name, email, password });
+    if (!parsed.success) {
+      const next: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0];
+        if (typeof key === "string" && !(key in next)) {
+          next[key as keyof FieldErrors] = issue.message;
+        }
+      }
+      setErrors(next);
+      return;
+    }
+    setErrors({});
     setBusy(true);
-    setError(null);
+
     const res =
       mode === "signup"
         ? await authClient.signUp.email({ email, password, name: name || email })
         : await authClient.signIn.email({ email, password });
+
     if (res.error) {
-      setError(res.error.message ?? "Something went wrong");
+      setFormError(res.error.message ?? "Something went wrong");
       setBusy(false);
       return;
     }
     navigate("/app");
+  }
+
+  function toggleMode() {
+    setMode(mode === "signin" ? "signup" : "signin");
+    setErrors({});
+    setFormError(null);
   }
 
   return (
@@ -74,48 +112,52 @@ export function AuthPage() {
             <span className="bg-border h-px flex-1" />
           </div>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            {mode === "signup" && (
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
+          <form onSubmit={onSubmit} noValidate>
+            <FieldGroup>
+              {mode === "signup" && (
+                <Field>
+                  <FieldLabel htmlFor="name">Name</FieldLabel>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </Field>
+              )}
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  aria-invalid={!!errors.email}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                 />
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <PasswordInput
-                id="password"
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error && <p className="text-destructive text-sm">{error}</p>}
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy
-                ? "Please wait"
-                : mode === "signin"
-                  ? "Sign in"
-                  : "Create account"}
-            </Button>
+                {errors.email && <FieldError>{errors.email}</FieldError>}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <PasswordInput
+                  id="password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  aria-invalid={!!errors.password}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                {errors.password && <FieldError>{errors.password}</FieldError>}
+              </Field>
+              {formError && <p className="text-destructive text-sm">{formError}</p>}
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy
+                  ? "Please wait"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : "Create account"}
+              </Button>
+            </FieldGroup>
           </form>
 
           <p className="text-muted-foreground text-center text-sm">
@@ -125,10 +167,7 @@ export function AuthPage() {
             <button
               type="button"
               className="text-foreground font-medium hover:underline"
-              onClick={() => {
-                setMode(mode === "signin" ? "signup" : "signin");
-                setError(null);
-              }}
+              onClick={toggleMode}
             >
               {mode === "signin" ? "Create one" : "Sign in"}
             </button>
