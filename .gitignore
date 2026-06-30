@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.wrangler/
+
+# Cloudflare / local D1
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Test / coverage
+coverage/
+
+# TS build info
+*.tsbuildinfo

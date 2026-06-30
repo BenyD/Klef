@@ -1,0 +1,11 @@
+# Copy to `.dev.vars` (gitignored) for local development.
+# `.dev.vars` is loaded by Wrangler/the Cloudflare Vite plugin as Worker secrets.
+
+# Better Auth (Phase 1)
+BETTER_AUTH_SECRET="generate-with: openssl rand -base64 32"
+BETTER_AUTH_URL="http://localhost:5173"
+
+# Google OAuth (Phase 1) — create at https://console.cloud.google.com/apis/credentials
+# Authorized redirect URI: http://localhost:5173/api/auth/callback/google
+GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
