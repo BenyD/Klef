@@ -22,6 +22,15 @@
 			"migrations_dir": "./migrations"
 		}
 	],
+	// Serve on the custom domain. Requires klef.sh to be an active zone in this
+	// Cloudflare account; `custom_domain: true` provisions the DNS record + cert
+	// automatically on deploy.
+	"routes": [
+		{
+			"pattern": "klef.sh",
+			"custom_domain": true
+		}
+	],
 	"observability": {
 		"enabled": true
 	}
