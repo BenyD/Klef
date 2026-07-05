@@ -73,6 +73,8 @@ describe("structure routes", () => {
     await seedUser("s2");
     const app = appForUser("s2");
     const wsId = await id(await app.request("/workspaces", post({ name: "Agency" }), env));
+    // A second workspace so "Agency" isn't the account's last one.
+    await app.request("/workspaces", post({ name: "Keep" }), env);
     const projId = await id(
       await app.request("/projects", post({ workspaceId: wsId, name: "old" }), env),
     );
@@ -83,7 +85,21 @@ describe("structure routes", () => {
 
     // Deleting the workspace cascades to projects + files.
     expect((await app.request(`/workspaces/${wsId}`, { method: "DELETE" }, env)).status).toBe(200);
-    expect((await tree(app)).workspaces).toEqual([]);
+    expect((await tree(app)).workspaces.map((w) => w.name)).toEqual(["Keep"]);
+  });
+
+  it("refuses to delete the account's only workspace", async () => {
+    await seedUser("s7");
+    const app = appForUser("s7");
+    const wsId = await id(await app.request("/workspaces", post({ name: "Solo" }), env));
+
+    const res = await app.request(`/workspaces/${wsId}`, { method: "DELETE" }, env);
+    expect(res.status).toBe(409);
+    expect((await tree(app)).workspaces[0]!.name).toBe("Solo");
+
+    // With a second workspace, deleting the first is allowed again.
+    await app.request("/workspaces", post({ name: "Second" }), env);
+    expect((await app.request(`/workspaces/${wsId}`, { method: "DELETE" }, env)).status).toBe(200);
   });
 
   it("rejects invalid names and unknown parents", async () => {
@@ -93,6 +109,28 @@ describe("structure routes", () => {
     expect(
       (await app.request("/projects", post({ workspaceId: "nope", name: "x" }), env)).status,
     ).toBe(404);
+  });
+
+  it("rejects workspace names that collide with routes or other workspaces", async () => {
+    await seedUser("s9");
+    const app = appForUser("s9");
+
+    // Reserved: these double as klef.sh URLs.
+    expect((await app.request("/workspaces", post({ name: "App" }), env)).status).toBe(400);
+    expect((await app.request("/workspaces", post({ name: "security" }), env)).status).toBe(400);
+    // Nothing routable left after slugifying.
+    expect((await app.request("/workspaces", post({ name: "!!!" }), env)).status).toBe(400);
+
+    const wsId = await id(await app.request("/workspaces", post({ name: "My Team" }), env));
+    // Same slug through different casing/punctuation.
+    expect((await app.request("/workspaces", post({ name: "my team!" }), env)).status).toBe(400);
+    // Renaming to itself stays allowed (the check excludes the workspace).
+    expect((await app.request(`/workspaces/${wsId}`, patch({ name: "My Team" }), env)).status).toBe(200);
+    // Renaming onto another workspace's slug is not.
+    await app.request("/workspaces", post({ name: "Other" }), env);
+    expect((await app.request(`/workspaces/${wsId}`, patch({ name: "other" }), env)).status).toBe(400);
+    // Reserved names are blocked on rename too.
+    expect((await app.request(`/workspaces/${wsId}`, patch({ name: "Vault" }), env)).status).toBe(400);
   });
 
   it("isolates structure per user", async () => {
@@ -110,6 +148,141 @@ describe("structure routes", () => {
 
     // Owner still has it intact.
     expect((await tree(owner)).workspaces[0]!.name).toBe("Secret");
+  });
+
+  it("creates files with an optional environment label", async () => {
+    await seedUser("s4");
+    const app = appForUser("s4");
+    const wsId = await id(await app.request("/workspaces", post({ name: "W" }), env));
+    const projId = await id(
+      await app.request("/projects", post({ workspaceId: wsId, name: "P" }), env),
+    );
+
+    await app.request(
+      "/files",
+      post({ projectId: projId, name: ".env.production", environment: "production" }),
+      env,
+    );
+    await app.request("/files", post({ projectId: projId, name: ".env.local" }), env);
+
+    const files = (await tree(app)).workspaces[0]!.projects[0]!.files;
+    expect(files.find((f) => f.name === ".env.production")!.environment).toBe("production");
+    expect(files.find((f) => f.name === ".env.local")!.environment).toBeNull();
+  });
+
+  it("sets, changes, and clears a file's environment via PATCH", async () => {
+    await seedUser("s5");
+    const app = appForUser("s5");
+    const wsId = await id(await app.request("/workspaces", post({ name: "W" }), env));
+    const projId = await id(
+      await app.request("/projects", post({ workspaceId: wsId, name: "P" }), env),
+    );
+    const fileId = await id(
+      await app.request("/files", post({ projectId: projId, name: ".env" }), env),
+    );
+
+    const fileEnv = async () =>
+      (await tree(app)).workspaces[0]!.projects[0]!.files[0]!.environment;
+
+    expect(
+      (await app.request(`/files/${fileId}`, patch({ environment: "development" }), env)).status,
+    ).toBe(200);
+    expect(await fileEnv()).toBe("development");
+
+    // Rename and relabel in one PATCH.
+    expect(
+      (
+        await app.request(
+          `/files/${fileId}`,
+          patch({ name: ".env.preview", environment: "preview" }),
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(await fileEnv()).toBe("preview");
+    expect((await tree(app)).workspaces[0]!.projects[0]!.files[0]!.name).toBe(".env.preview");
+
+    // Clear with an explicit null.
+    expect(
+      (await app.request(`/files/${fileId}`, patch({ environment: null }), env)).status,
+    ).toBe(200);
+    expect(await fileEnv()).toBeNull();
+  });
+
+  it("creates and edits projects with an optional framework", async () => {
+    await seedUser("s8");
+    const app = appForUser("s8");
+    const wsId = await id(await app.request("/workspaces", post({ name: "W" }), env));
+
+    const projId = await id(
+      await app.request(
+        "/projects",
+        post({ workspaceId: wsId, name: "app", framework: "nextjs" }),
+        env,
+      ),
+    );
+    const projFramework = async () =>
+      (await tree(app)).workspaces[0]!.projects[0]!.framework;
+    expect(await projFramework()).toBe("nextjs");
+
+    // Change framework alone, then clear it alongside a rename.
+    expect(
+      (await app.request(`/projects/${projId}`, patch({ framework: "vite" }), env)).status,
+    ).toBe(200);
+    expect(await projFramework()).toBe("vite");
+    expect(
+      (
+        await app.request(
+          `/projects/${projId}`,
+          patch({ name: "renamed", framework: null }),
+          env,
+        )
+      ).status,
+    ).toBe(200);
+    expect(await projFramework()).toBeNull();
+    expect((await tree(app)).workspaces[0]!.projects[0]!.name).toBe("renamed");
+
+    // Unknown frameworks are rejected on create and update.
+    expect(
+      (
+        await app.request(
+          "/projects",
+          post({ workspaceId: wsId, name: "x", framework: "angularjs" }),
+          env,
+        )
+      ).status,
+    ).toBe(400);
+    expect(
+      (await app.request(`/projects/${projId}`, patch({ framework: "x" }), env)).status,
+    ).toBe(400);
+    expect((await app.request(`/projects/${projId}`, patch({}), env)).status).toBe(400);
+  });
+
+  it("rejects invalid environment labels and empty updates", async () => {
+    await seedUser("s6");
+    const app = appForUser("s6");
+    const wsId = await id(await app.request("/workspaces", post({ name: "W" }), env));
+    const projId = await id(
+      await app.request("/projects", post({ workspaceId: wsId, name: "P" }), env),
+    );
+
+    expect(
+      (
+        await app.request(
+          "/files",
+          post({ projectId: projId, name: ".env", environment: "prod" }),
+          env,
+        )
+      ).status,
+    ).toBe(400);
+
+    const fileId = await id(
+      await app.request("/files", post({ projectId: projId, name: ".env" }), env),
+    );
+    expect(
+      (await app.request(`/files/${fileId}`, patch({ environment: "staging" }), env)).status,
+    ).toBe(400);
+    expect((await app.request(`/files/${fileId}`, patch({}), env)).status).toBe(400);
   });
 });
 

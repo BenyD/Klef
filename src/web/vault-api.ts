@@ -39,3 +39,15 @@ export async function updateVaultPassphrase(
   });
   if (!res.ok) throw new Error(await readError(res));
 }
+
+/** Recovery-key rotation: store the newly recovery-wrapped DEK. */
+export async function updateVaultRecovery(
+  wrappedDekRecovery: WrappedKey,
+): Promise<void> {
+  const res = await fetch("/api/vault/recovery", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wrappedDekRecovery }),
+  });
+  if (!res.ok) throw new Error(await readError(res));
+}

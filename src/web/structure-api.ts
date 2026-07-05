@@ -1,4 +1,4 @@
-import type { VaultTree } from "../shared/api-types.ts";
+import type { Environment, Framework, VaultTree } from "../shared/api-types.ts";
 import type { EncryptedBlob } from "../shared/types.ts";
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
@@ -25,17 +25,35 @@ export const renameWorkspace = (id: string, name: string) =>
 export const deleteWorkspace = (id: string) =>
   req(`/api/workspaces/${id}`, { method: "DELETE" });
 
-export const createProject = (workspaceId: string, name: string) =>
-  req<{ id: string }>("/api/projects", jsonBody("POST", { workspaceId, name }));
-export const renameProject = (id: string, name: string) =>
-  req(`/api/projects/${id}`, jsonBody("PATCH", { name }));
+export const createProject = (
+  workspaceId: string,
+  name: string,
+  framework: Framework | null = null,
+) =>
+  req<{ id: string }>(
+    "/api/projects",
+    jsonBody("POST", { workspaceId, name, framework }),
+  );
+export const updateProject = (
+  id: string,
+  fields: { name?: string; framework?: Framework | null },
+) => req(`/api/projects/${id}`, jsonBody("PATCH", fields));
 export const deleteProject = (id: string) =>
   req(`/api/projects/${id}`, { method: "DELETE" });
 
-export const createFile = (projectId: string, name: string) =>
-  req<{ id: string }>("/api/files", jsonBody("POST", { projectId, name }));
+export const createFile = (
+  projectId: string,
+  name: string,
+  environment: Environment | null = null,
+) =>
+  req<{ id: string }>(
+    "/api/files",
+    jsonBody("POST", { projectId, name, environment }),
+  );
 export const renameFile = (id: string, name: string) =>
   req(`/api/files/${id}`, jsonBody("PATCH", { name }));
+export const setFileEnvironment = (id: string, environment: Environment | null) =>
+  req(`/api/files/${id}`, jsonBody("PATCH", { environment }));
 export const deleteFile = (id: string) =>
   req(`/api/files/${id}`, { method: "DELETE" });
 

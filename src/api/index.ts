@@ -48,4 +48,8 @@ app.route("/api", structure);
 // Any other /api path we haven't defined.
 app.all("/api/*", (c) => c.json({ ok: false, error: "Not found" }, 404));
 
+// Agent/crawler discovery probes (routed here via run_worker_first) get an
+// honest 404 instead of the SPA shell, which scanners read as a soft-404.
+app.all("/.well-known/*", (c) => c.json({ ok: false, error: "Not found" }, 404));
+
 export default app;

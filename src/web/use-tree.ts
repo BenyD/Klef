@@ -19,5 +19,7 @@ export function useTree() {
     void reload();
   }, [reload]);
 
-  return { tree, error, reload };
+  // Loading = first fetch still in flight. Callers must not render empty
+  // states from a null tree, or they flash before the data arrives.
+  return { tree, loading: tree === null && error === null, error, reload };
 }

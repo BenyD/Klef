@@ -9,8 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card.tsx";
+import { Field, FieldError, FieldGroup, FieldLabel } from "./ui/field.tsx";
 import { Input } from "./ui/input.tsx";
-import { Label } from "./ui/label.tsx";
 import { PasswordInput } from "./ui/password-input.tsx";
 
 export function UnlockScreen() {
@@ -46,44 +46,50 @@ export function UnlockScreen() {
 
   return (
     <AuthShell>
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Unlock your vault</CardTitle>
+          <CardTitle className="text-xl font-semibold tracking-tight">
+            Unlock your vault
+          </CardTitle>
           <CardDescription>
             Enter your master passphrase to decrypt your vault.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="unlock">
-                {mode === "passphrase" ? "Master passphrase" : "Recovery key"}
-              </Label>
-              {mode === "passphrase" ? (
-                <PasswordInput
-                  id="unlock"
-                  autoComplete="current-password"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  autoFocus
-                />
-              ) : (
-                <Input
-                  id="unlock"
-                  type="text"
-                  spellCheck={false}
-                  autoComplete="off"
-                  placeholder="KLEF-XXXXX-XXXXX"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  autoFocus
-                />
-              )}
-            </div>
-            {error && <p className="text-destructive text-sm">{error}</p>}
-            <Button type="submit" className="w-full" disabled={busy || !value}>
-              {busy ? "Unlocking…" : "Unlock"}
-            </Button>
+          <form onSubmit={onSubmit} noValidate>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="unlock">
+                  {mode === "passphrase" ? "Master passphrase" : "Recovery key"}
+                </FieldLabel>
+                {mode === "passphrase" ? (
+                  <PasswordInput
+                    id="unlock"
+                    autoComplete="current-password"
+                    aria-invalid={!!error}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    autoFocus
+                  />
+                ) : (
+                  <Input
+                    id="unlock"
+                    type="text"
+                    spellCheck={false}
+                    autoComplete="off"
+                    aria-invalid={!!error}
+                    placeholder="KLEF-XXXXX-XXXXX"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    autoFocus
+                  />
+                )}
+                {error && <FieldError>{error}</FieldError>}
+              </Field>
+              <Button type="submit" className="w-full" disabled={busy || !value}>
+                {busy ? "Unlocking..." : "Unlock"}
+              </Button>
+            </FieldGroup>
           </form>
           <Button
             variant="link"

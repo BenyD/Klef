@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Copy, Download, History, Loader2, Save, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Copy, Download, Loader2, RotateCcw, Save } from "lucide-react";
+import { toast } from "sonner";
 import { decryptBlob, encryptBlob } from "../../shared/crypto.ts";
 import { diffLines, diffStats, isUnchanged } from "../../shared/diff.ts";
 import {
@@ -10,34 +11,41 @@ import {
   type VersionSummary,
 } from "../structure-api.ts";
 import { useVault } from "../vault-session.tsx";
-import type { SelectedFile } from "./StructureNav.tsx";
+import type { SelectedFile } from "../vault-types.ts";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "./ui/empty.tsx";
+import { Skeleton } from "./ui/skeleton.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.tsx";
 import { Textarea } from "./ui/textarea.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.tsx";
 
 interface Props {
   file: SelectedFile;
   onSaved: () => void;
 }
 
-// The heart of Klef: paste → decrypt current in-browser → diff → save. The
-// server only ever sees opaque blobs across this whole flow.
+// The heart of Klef: paste, decrypt current in-browser, diff, save. The server
+// only ever sees opaque blobs across this whole flow.
 export function FilePane({ file, onSaved }: Props) {
   const { dek } = useVault();
   const [stored, setStored] = useState("");
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [justSaved, setJustSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState("editor");
   const [history, setHistory] = useState<VersionSummary[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
-    setJustSaved(false);
+    setTab("editor");
+    setHistory(null);
     getCurrentVersion(file.id)
       .then(async ({ version }) => {
         const text = version && dek ? await decryptBlob(dek, version.blob) : "";
@@ -46,7 +54,7 @@ export function FilePane({ file, onSaved }: Props) {
         setDraft(text);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) toast.error(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -67,16 +75,15 @@ export function FilePane({ file, onSaved }: Props) {
   async function onSave() {
     if (!dek || !changed) return;
     setSaving(true);
-    setError(null);
     try {
       const blob = await encryptBlob(dek, draft);
       await saveVersion(file.id, blob);
       setStored(draft);
-      setJustSaved(true);
       onSaved();
       if (history) await refreshHistory();
+      toast.success("Version saved");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -85,10 +92,9 @@ export function FilePane({ file, onSaved }: Props) {
   async function copyToClipboard() {
     try {
       await navigator.clipboard.writeText(draft);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      toast.success("Copied to clipboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -100,17 +106,17 @@ export function FilePane({ file, onSaved }: Props) {
     a.download = file.name;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success(`Exported ${file.name}`);
   }
 
-  async function toggleHistory() {
-    if (history) {
-      setHistory(null);
-      return;
-    }
-    try {
-      await refreshHistory();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+  async function onTabChange(value: string) {
+    setTab(value);
+    if (value === "history" && !history) {
+      try {
+        await refreshHistory();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e));
+      }
     }
   }
 
@@ -121,151 +127,175 @@ export function FilePane({ file, onSaved }: Props) {
     try {
       const { version } = await getVersion(file.id, versionId);
       setDraft(await decryptBlob(dek, version.blob));
+      setTab("editor");
+      toast.info("Loaded into editor. Save to restore.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-80 w-full" />
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-mono text-lg font-medium">{file.name}</h2>
-        <div className="flex items-center gap-1.5">
+    <div className="flex flex-1 flex-col p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="font-mono text-sm">
           {changed ? (
-            <span className="mr-1 font-mono text-sm">
+            <>
               <span className="text-emerald-600">+{stats.added}</span>{" "}
-              <span className="text-rose-600">−{stats.removed}</span>
-            </span>
+              <span className="text-rose-600">-{stats.removed}</span>
+            </>
           ) : (
-            justSaved && (
-              <span className="text-muted-foreground mr-1 flex items-center gap-1 text-sm">
-                <Check className="size-3.5 text-emerald-600" />
-                Saved
-              </span>
-            )
+            <span className="text-muted-foreground">No unsaved changes</span>
           )}
-          <Button variant="ghost" size="sm" onClick={copyToClipboard} disabled={loading}>
-            {copied ? <Check /> : <Copy />}
-            {copied ? "Copied" : "Copy"}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={exportFile} disabled={loading}>
+        </span>
+        <div className="flex items-center gap-1">
+          <IconAction label="Copy" onClick={copyToClipboard}>
+            <Copy />
+          </IconAction>
+          <IconAction label="Export" onClick={exportFile}>
             <Download />
-            Export
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void toggleHistory()}
-            disabled={loading}
-            className={history ? "bg-accent" : undefined}
-          >
-            <History />
-            History
-          </Button>
+          </IconAction>
           {changed && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDraft(stored)}
-              disabled={saving}
-            >
-              <Undo2 />
-              Discard
-            </Button>
+            <IconAction label="Discard changes" onClick={() => setDraft(stored)}>
+              <RotateCcw />
+            </IconAction>
           )}
           <Button size="sm" onClick={() => void onSave()} disabled={!changed || saving}>
             {saving ? <Loader2 className="animate-spin" /> : <Save />}
-            {saving ? "Saving…" : "Save version"}
+            Save version
           </Button>
         </div>
       </div>
 
-      {error && <p className="text-destructive mb-3 text-sm">{error}</p>}
+      <Tabs value={tab} onValueChange={onTabChange} className="flex flex-1 flex-col">
+        <TabsList>
+          <TabsTrigger value="editor">Editor</TabsTrigger>
+          <TabsTrigger value="changes">
+            Changes
+            {changed && (
+              <Badge variant="secondary" className="ml-1.5 font-normal">
+                {stats.added + stats.removed}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
 
-      {loading ? (
-        <div className="text-muted-foreground flex items-center gap-2 py-12 text-sm">
-          <Loader2 className="size-4 animate-spin" />
-          Decrypting…
-        </div>
-      ) : (
-        <>
+        <TabsContent value="editor" keepMounted className="mt-3 flex-1">
           <Textarea
             spellCheck={false}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Paste your .env contents here…"
-            className="min-h-80 font-mono text-sm leading-relaxed"
+            placeholder="Paste your .env contents here..."
+            className="h-full min-h-80 font-mono text-sm leading-relaxed"
           />
+        </TabsContent>
 
-          {changed && (
-            <section className="mt-6">
-              <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
-                Changes
-              </h3>
-              <div className="overflow-hidden rounded-md border font-mono text-xs leading-relaxed">
-                {ops.map((op, i) => (
-                  <div
-                    key={i}
-                    data-diff={op.type}
-                    className={`flex gap-2 px-3 ${
-                      op.type === "add"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : op.type === "remove"
-                          ? "bg-rose-50 text-rose-700"
-                          : "text-muted-foreground"
-                    }`}
+        <TabsContent value="changes" keepMounted className="mt-3 flex-1">
+          {changed ? (
+            <div className="overflow-hidden rounded-md border font-mono text-xs leading-relaxed">
+              {ops.map((op, i) => (
+                <div
+                  key={i}
+                  data-diff={op.type}
+                  className={`flex gap-2 px-3 ${
+                    op.type === "add"
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : op.type === "remove"
+                        ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  <span className="w-3 shrink-0 text-center opacity-60 select-none">
+                    {op.type === "add" ? "+" : op.type === "remove" ? "-" : ""}
+                  </span>
+                  <span className="break-all whitespace-pre-wrap">
+                    {op.text || " "}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No changes</EmptyTitle>
+                <EmptyDescription>
+                  Edit the file in the editor to see a line-by-line diff here.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" keepMounted className="mt-3 flex-1">
+          {!history ? (
+            <Skeleton className="h-24 w-full" />
+          ) : history.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No versions yet</EmptyTitle>
+                <EmptyDescription>Saved versions will appear here.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ul className="divide-y rounded-md border">
+              {history.map((v) => (
+                <li
+                  key={v.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2"
+                >
+                  <span className="text-muted-foreground flex items-center gap-2 text-sm">
+                    {new Date(v.createdAt).toLocaleString()}
+                    {v.isCurrent && (
+                      <Badge variant="secondary" className="font-normal">
+                        current
+                      </Badge>
+                    )}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void loadVersion(v.id)}
                   >
-                    <span className="w-3 shrink-0 text-center opacity-60 select-none">
-                      {op.type === "add" ? "+" : op.type === "remove" ? "−" : ""}
-                    </span>
-                    <span className="break-all whitespace-pre-wrap">
-                      {op.text || " "}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+                    Load into editor
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
-
-          {history && (
-            <section className="mt-6">
-              <h3 className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
-                Version history
-              </h3>
-              {history.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  No saved versions yet.
-                </p>
-              ) : (
-                <ul className="divide-y rounded-md border">
-                  {history.map((v) => (
-                    <li
-                      key={v.id}
-                      className="flex items-center justify-between gap-3 px-3 py-2"
-                    >
-                      <span className="text-muted-foreground flex items-center gap-2 text-sm">
-                        {new Date(v.createdAt).toLocaleString()}
-                        {v.isCurrent && (
-                          <Badge variant="secondary" className="font-normal">
-                            current
-                          </Badge>
-                        )}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void loadVersion(v.id)}
-                      >
-                        Load into editor
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function IconAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button variant="ghost" size="icon" onClick={onClick} aria-label={label}>
+            {children}
+          </Button>
+        }
+      />
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }

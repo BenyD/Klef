@@ -18,12 +18,26 @@ vi.mock("./vault-api.ts", () => ({
   updateVaultPassphrase: async () => {},
 }));
 
+// In-memory stand-in for the IndexedDB DEK cache (persistence across reloads).
+const dekState = vi.hoisted(() => ({ saved: null as CryptoKey | null }));
+
+vi.mock("./dek-store.ts", () => ({
+  saveDek: async (_userId: string, dek: CryptoKey) => {
+    dekState.saved = dek;
+  },
+  loadDek: async () => dekState.saved,
+  clearDek: async () => {
+    dekState.saved = null;
+  },
+}));
+
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <VaultProvider>{children}</VaultProvider>
+  <VaultProvider userId="user-1">{children}</VaultProvider>
 );
 
 beforeEach(() => {
   state.stored = null;
+  dekState.saved = null;
 });
 
 describe("vault session (unlock gate)", () => {
@@ -75,7 +89,7 @@ describe("vault session (unlock gate)", () => {
     expect(result.current.dek).not.toBeNull();
   });
 
-  it("lock clears the DEK; the recovery key can unlock", async () => {
+  it("remembers the unlock across reloads; lock forgets it; recovery still works", async () => {
     const seed = renderHook(() => useVault(), { wrapper });
     await waitFor(() => expect(seed.result.current.status).toBe("needs-setup"));
     let recoveryKey = "";
@@ -83,17 +97,26 @@ describe("vault session (unlock gate)", () => {
       recoveryKey = await seed.result.current.runSetup("pw for recovery test");
     });
     act(() => seed.result.current.finishSetup());
+    expect(seed.result.current.status).toBe("unlocked");
 
-    const { result } = renderHook(() => useVault(), { wrapper });
-    await waitFor(() => expect(result.current.status).toBe("locked"));
+    // A fresh provider (simulating a reload) restores the remembered DEK
+    // instead of prompting for the passphrase again.
+    const reloaded = renderHook(() => useVault(), { wrapper });
+    await waitFor(() => expect(reloaded.result.current.status).toBe("unlocked"));
+    expect(reloaded.result.current.dek).not.toBeNull();
 
+    // Locking forgets it, so the next load is locked again.
+    act(() => reloaded.result.current.lock());
+    expect(reloaded.result.current.status).toBe("locked");
+    expect(reloaded.result.current.dek).toBeNull();
+
+    const afterLock = renderHook(() => useVault(), { wrapper });
+    await waitFor(() => expect(afterLock.result.current.status).toBe("locked"));
+
+    // The recovery key still unlocks.
     await act(async () => {
-      await result.current.recover(recoveryKey);
+      await afterLock.result.current.recover(recoveryKey);
     });
-    expect(result.current.status).toBe("unlocked");
-
-    act(() => result.current.lock());
-    expect(result.current.status).toBe("locked");
-    expect(result.current.dek).toBeNull();
+    expect(afterLock.result.current.status).toBe("unlocked");
   });
 });

@@ -72,6 +72,20 @@ describe("vault routes", () => {
     expect(body.keyMaterial.kdfParams.salt).toBe(MATERIAL.kdfParams.salt);
   });
 
+  it("seeds a default workspace named after the user on first setup", async () => {
+    await seedUser("u-seed");
+    const app = appForUser("u-seed");
+    await app.request("/", json(MATERIAL), env);
+
+    const row = await env.DB.prepare(
+      "SELECT name FROM workspaces WHERE user_id = ?",
+    )
+      .bind("u-seed")
+      .first<{ name: string }>();
+    // Stub session name is "Test", so the starter workspace is "Test's Team".
+    expect(row?.name).toBe("Test's Team");
+  });
+
   it("rejects a second setup with 409", async () => {
     await seedUser("u2");
     const app = appForUser("u2");
@@ -114,6 +128,65 @@ describe("vault routes", () => {
     expect(body.keyMaterial.wrappedDekRecovery.ciphertext).toBe(
       MATERIAL.wrappedDekRecovery.ciphertext,
     );
+  });
+
+  it("replaces only the recovery-wrapped DEK on rotation", async () => {
+    await seedUser("u5");
+    const app = appForUser("u5");
+    await app.request("/", json(MATERIAL), env);
+
+    const upd = await app.request(
+      "/recovery",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          wrappedDekRecovery: {
+            ...MATERIAL.wrappedDekRecovery,
+            ciphertext: "cm90YXRlZHJlYw==",
+          },
+        }),
+      },
+      env,
+    );
+    expect(upd.status).toBe(200);
+
+    const body = (await (await app.request("/", {}, env)).json()) as {
+      keyMaterial: typeof MATERIAL;
+    };
+    expect(body.keyMaterial.wrappedDekRecovery.ciphertext).toBe("cm90YXRlZHJlYw==");
+    // Passphrase wrapping and KDF params are unchanged by a rotation.
+    expect(body.keyMaterial.wrappedDek.ciphertext).toBe(MATERIAL.wrappedDek.ciphertext);
+    expect(body.keyMaterial.kdfParams.salt).toBe(MATERIAL.kdfParams.salt);
+  });
+
+  it("rejects invalid or vault-less recovery rotations", async () => {
+    await seedUser("u6");
+    const app = appForUser("u6");
+
+    // No vault yet.
+    const missing = await app.request(
+      "/recovery",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wrappedDekRecovery: MATERIAL.wrappedDekRecovery }),
+      },
+      env,
+    );
+    expect(missing.status).toBe(404);
+
+    await app.request("/", json(MATERIAL), env);
+    const bad = await app.request(
+      "/recovery",
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ wrappedDekRecovery: { nope: true } }),
+      },
+      env,
+    );
+    expect(bad.status).toBe(400);
   });
 
   it("isolates vaults per user", async () => {

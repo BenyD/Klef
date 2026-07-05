@@ -37,7 +37,7 @@ afterEach(cleanup);
 
 describe("FilePane (the save loop)", () => {
   it("encrypts the pasted text and persists a blob that decrypts back", async () => {
-    render(<FilePane file={{ id: "f1", name: ".env" }} onSaved={() => {}} />);
+    render(<FilePane file={{ id: "f1", name: ".env", project: "p", workspace: "w", environment: null }} onSaved={() => {}} />);
 
     const textarea = await screen.findByPlaceholderText(/Paste your .env/i);
     const content = "API_KEY=abc123\n# comment\nDB_URL=postgres://x\n";
@@ -67,7 +67,7 @@ describe("FilePane (the save loop)", () => {
     };
 
     const { container } = render(
-      <FilePane file={{ id: "f2", name: ".env" }} onSaved={() => {}} />,
+      <FilePane file={{ id: "f2", name: ".env", project: "p", workspace: "w", environment: null }} onSaved={() => {}} />,
     );
 
     const textarea = await screen.findByDisplayValue("A=1");
